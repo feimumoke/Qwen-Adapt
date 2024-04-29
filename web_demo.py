@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """A simple web interactive chat demo based on gradio."""
+import json
 import os
 from argparse import ArgumentParser
 
@@ -117,17 +118,79 @@ def _gc():
         torch.cuda.empty_cache()
 
 
+def _parse_response(init, data):
+    print(f"Response Load: {data}")
+    split = data.split('}{')
+    if data == "":
+        return "没有检索到历史记录，请详细描述您遇到的问题"
+
+    result = init
+    msg = ""
+    data_list = []
+    for index, s in enumerate(split):
+        if index == 0:
+            s += '}'
+        elif index == len(split) - 1:
+            s = '{' + s
+        else:
+            s = '{' + s + '}'
+        try:
+            loads = json.loads(s)
+            ret_code = int(loads['code'])
+            if ret_code == 0:
+                data = loads['data']
+                if data not in data_list:
+                    data_list.append(data)
+                    result += data + "\n"
+            else:
+                msg = loads['message']
+        except Exception:
+            print(f"Error Load: {s}")
+    if len(result) != len(init):
+        return result
+    if msg != "":
+        return msg
+    return "没有检索到历史记录，请详细描述您遇到的问题"
+
+
 def _launch_demo(args, model, tokenizer, config):
-    def predict(_query, _chatbot, _task_history):
+    def predict(_radio, _query, _chatbot, _task_history):
         print(f"User: {_parse_text(_query)}")
         _chatbot.append((_parse_text(_query), ""))
         full_response = ""
+        if _radio == "用户描述":
 
-        for response in model.chat_stream(tokenizer, _query, history=_task_history, generation_config=config):
-            _chatbot[-1] = (_parse_text(_query), _parse_text(response))
+            prompt_template = '''
+            给定用户描述：“%s”，请你按步骤要求工作。
+            步骤1：识别这句话中的空调的故障原因
 
-            yield _chatbot
-            full_response = _parse_text(response)
+            请问，这个空调的故障原因，并返回前3个最有可能的原因：
+            '''
+            prompt = prompt_template % (_query,)
+            for response in model.chat_stream(tokenizer, prompt, history=_task_history, generation_config=config):
+                _chatbot[-1] = (_parse_text(_query), _parse_text(response))
+                yield _chatbot
+                full_response = _parse_text(response)
+        elif _radio == "维修描述":
+            prompt_template = '''
+            给定维修描述：“%s”，请你按步骤要求工作。
+            请识别这句话中的维修关键问题
+
+            请问，请问概率最高的5个维修关键问题是,用换行符\n连接：
+            '''
+            prompt = prompt_template % (_query,)
+            for response in model.chat_stream(tokenizer, prompt, history=_task_history, generation_config=config):
+                _chatbot[-1] = (_parse_text(_query), _parse_text(response))
+                yield _chatbot
+                full_response = _parse_text(response)
+        else:
+            model.generation_config.top_p = 0  # 只选择概率最高的token
+            for response in model.chat_stream(tokenizer, _query, history=_task_history, generation_config=config):
+                _chatbot[-1] = (_parse_text(_query), _parse_text(response))
+
+                yield _chatbot
+                full_response = _parse_text(response)
+                print(f"full_response: {full_response}")
 
         print(f"History: {_task_history}")
         _task_history.append((_query, full_response))
@@ -152,26 +215,26 @@ def _launch_demo(args, model, tokenizer, config):
 
     with gr.Blocks() as demo:
         gr.Markdown("""\
-<p align="center"><img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg" style="height: 80px"/><p>""")
-        gr.Markdown("""<center><font size=8>Qwen-Chat Bot</center>""")
+<p align="center"><img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg" style="height: 30px"/><p>""")
+        gr.Markdown("""<center><font size=6>Qwen-Chat Bot</center>""")
         gr.Markdown(
             """\
-<center><font size=3>This WebUI is based on Qwen-Chat, developed by Alibaba Cloud. \
-(美的空调维修智能语义分析。)</center>""")
-#         gr.Markdown("""\
-# <center><font size=4>
-# Qwen-7B <a href="https://modelscope.cn/models/qwen/Qwen-7B/summary">🤖 </a> |
-# <a href="https://huggingface.co/Qwen/Qwen-7B">🤗</a>&nbsp ｜
-# Qwen-7B-Chat <a href="https://modelscope.cn/models/qwen/Qwen-7B-Chat/summary">🤖 </a> |
-# <a href="https://huggingface.co/Qwen/Qwen-7B-Chat">🤗</a>&nbsp ｜
-# Qwen-14B <a href="https://modelscope.cn/models/qwen/Qwen-14B/summary">🤖 </a> |
-# <a href="https://huggingface.co/Qwen/Qwen-14B">🤗</a>&nbsp ｜
-# Qwen-14B-Chat <a href="https://modelscope.cn/models/qwen/Qwen-14B-Chat/summary">🤖 </a> |
-# <a href="https://huggingface.co/Qwen/Qwen-14B-Chat">🤗</a>&nbsp ｜
-# &nbsp<a href="https://github.com/QwenLM/Qwen">Github</a></center>""")
+<center><font size=3> (美的空调维修智能语义分析。)</center>""")
+        #         gr.Markdown("""\
+        # <center><font size=4>
+        # Qwen-7B <a href="https://modelscope.cn/models/qwen/Qwen-7B/summary">🤖 </a> |
+        # <a href="https://huggingface.co/Qwen/Qwen-7B">🤗</a>&nbsp ｜
+        # Qwen-7B-Chat <a href="https://modelscope.cn/models/qwen/Qwen-7B-Chat/summary">🤖 </a> |
+        # <a href="https://huggingface.co/Qwen/Qwen-7B-Chat">🤗</a>&nbsp ｜
+        # Qwen-14B <a href="https://modelscope.cn/models/qwen/Qwen-14B/summary">🤖 </a> |
+        # <a href="https://huggingface.co/Qwen/Qwen-14B">🤗</a>&nbsp ｜
+        # Qwen-14B-Chat <a href="https://modelscope.cn/models/qwen/Qwen-14B-Chat/summary">🤖 </a> |
+        # <a href="https://huggingface.co/Qwen/Qwen-14B-Chat">🤗</a>&nbsp ｜
+        # &nbsp<a href="https://github.com/QwenLM/Qwen">Github</a></center>""")
 
-        chatbot = gr.Chatbot(label='Qwen-Chat', elem_classes="control-height")
-        query = gr.Textbox(lines=2, label='Input')
+        chatbot = gr.Chatbot(label='Chat-Log', elem_classes="control-height")
+        radio = gr.Radio(choices=["用户描述", "维修描述", "普通问题"], value="用户描述")
+        query = gr.Textbox(lines=2, label='请输入问题')
         task_history = gr.State([])
 
         with gr.Row():
@@ -179,17 +242,17 @@ def _launch_demo(args, model, tokenizer, config):
             submit_btn = gr.Button("🚀 Submit (发送)")
             regen_btn = gr.Button("🤔️ Regenerate (重试)")
 
-        submit_btn.click(predict, [query, chatbot, task_history], [chatbot], show_progress=True)
+        submit_btn.click(predict, [radio, query, chatbot, task_history], [chatbot], show_progress=True)
         submit_btn.click(reset_user_input, [], [query])
         empty_btn.click(reset_state, [chatbot, task_history], outputs=[chatbot], show_progress=True)
         regen_btn.click(regenerate, [chatbot, task_history], [chatbot], show_progress=True)
 
-#         gr.Markdown("""\
-# <font size=2>Note: This demo is governed by the original license of Qwen. \
-# We strongly advise users not to knowingly generate or allow others to knowingly generate harmful content, \
-# including hate speech, violence, pornography, deception, etc. \
-# (注：本演示受Qwen的许可协议限制。我们强烈建议，用户不应传播及不应允许他人传播以下内容，\
-# 包括但不限于仇恨言论、暴力、色情、欺诈相关的有害信息。)""")
+    #         gr.Markdown("""\
+    # <font size=2>Note: This demo is governed by the original license of Qwen. \
+    # We strongly advise users not to knowingly generate or allow others to knowingly generate harmful content, \
+    # including hate speech, violence, pornography, deception, etc. \
+    # (注：本演示受Qwen的许可协议限制。我们强烈建议，用户不应传播及不应允许他人传播以下内容，\
+    # 包括但不限于仇恨言论、暴力、色情、欺诈相关的有害信息。)""")
 
     demo.queue().launch(
         share=args.share,
@@ -203,7 +266,7 @@ def main():
     args = _get_args()
 
     model, tokenizer, config = _load_model_tokenizer(args)
-
+    # model.generation_config.top_p = 5  # 只选择概率最高的token
     _launch_demo(args, model, tokenizer, config)
 
 
