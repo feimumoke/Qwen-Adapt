@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import pytest
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -10,7 +9,7 @@ from bert_multilabel_cls import BertMultiLabelCls
 from data_helper import MultiClsDataSet
 from sklearn.metrics import accuracy_score
 
-train_path = "./data/train.json"
+train_path = "data/train.json"
 dev_path = "./data/dev.json"
 test_path = "./data/test.json"
 label2idx_path = "./data/label2idx.json"
@@ -18,11 +17,11 @@ save_model_path = "./model/multi_label_cls.pth"
 label2idx = load_json(label2idx_path)
 class_num = len(label2idx)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-lr = 2e-5
-batch_size = 128
+lr = 3e-5
+batch_size = 100
 max_len = 128
 hidden_size = 768
-epochs = 10
+epochs = 50
 
 train_dataset = MultiClsDataSet(train_path, max_len=max_len, label2idx_path=label2idx_path)
 dev_dataset = MultiClsDataSet(dev_path, max_len=max_len, label2idx_path=label2idx_path)
@@ -69,6 +68,7 @@ def train():
         print("Dev epoch:{} acc:{} loss:{}".format(epoch, dev_acc, dev_loss))
         if dev_acc > dev_best_acc:
             dev_best_acc = dev_acc
+            print('save model to',save_model_path)
             torch.save(model.state_dict(), save_model_path)
 
     # 测试

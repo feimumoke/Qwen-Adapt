@@ -42,4 +42,4 @@ def preprocess(train_data_path, label2idx_path, max_len_ratio=0.9):
 
 
 if __name__ == '__main__':
-    preprocess("./data/train.json", "./data/label2idx.json")
+    preprocess("data/train.json", "./data/label2idx.json")

@@ -48,7 +48,7 @@ class MultiClsDataSet(Dataset):
 
 
 if __name__ == '__main__':
-    dataset = MultiClsDataSet(data_path="./data/train.json")
+    dataset = MultiClsDataSet(data_path="data/train2.json")
     print(dataset.input_ids)
     print(dataset.token_type_ids)
     print(dataset.attention_mask)

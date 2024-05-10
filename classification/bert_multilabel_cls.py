@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from transformers import BertModel
 
 
+# google-bert/bert-base-chinese
+
 class BertMultiLabelCls(nn.Module):
     def __init__(self, hidden_size, class_num, dropout=0.1):
         super(BertMultiLabelCls, self).__init__()
@@ -19,10 +21,3 @@ class BertMultiLabelCls(nn.Module):
         cls = self.drop(outputs[1])
         out = F.sigmoid(self.fc(cls))
         return out
-
-
-
-
-
-
-

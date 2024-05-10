@@ -6,7 +6,7 @@ from bert_multilabel_cls import BertMultiLabelCls
 from transformers import BertTokenizer
 
 hidden_size = 768
-class_num = 3
+class_num = 19
 label2idx_path = "./data/label2idx.json"
 save_model_path = "./model/multi_label_cls.pth"
 label2idx = load_json(label2idx_path)
@@ -32,6 +32,7 @@ def predict(texts):
     result = []
     for sample in logits:
         pred_label = []
+        print(sample)
         for idx, logit in enumerate(sample):
             if logit > 0.5:
                 pred_label.append(idx2label[idx])
@@ -40,7 +41,6 @@ def predict(texts):
 
 
 if __name__ == '__main__':
-    texts = ["不制热/制热效果差", "今日沪深两市指数整体呈现震荡调整格局"]
+    texts = ["不制热", "制热效果一点不好","空调打开还是很冷，没有热气", "今天天气怎么样"]
     result = predict(texts)
     print(result)
-
