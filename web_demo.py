@@ -242,10 +242,10 @@ def _launch_demo(args, model, tokenizer, config):
             submit_btn = gr.Button("🚀 Submit (发送)")
             regen_btn = gr.Button("🤔️ Regenerate (重试)")
 
-        submit_btn.click(predict, [radio, query, chatbot, task_history], [chatbot], show_progress=True)
+        submit_btn.click(predict, [radio, query, chatbot, task_history], [chatbot], show_progress='full')
         submit_btn.click(reset_user_input, [], [query])
-        empty_btn.click(reset_state, [chatbot, task_history], outputs=[chatbot], show_progress=True)
-        regen_btn.click(regenerate, [chatbot, task_history], [chatbot], show_progress=True)
+        empty_btn.click(reset_state, [chatbot, task_history], outputs=[chatbot], show_progress='full')
+        regen_btn.click(regenerate, [chatbot, task_history], [chatbot], show_progress='full')
 
     #         gr.Markdown("""\
     # <font size=2>Note: This demo is governed by the original license of Qwen. \
